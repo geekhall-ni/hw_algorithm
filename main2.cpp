@@ -43,11 +43,18 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
             const std::vector<Disk> &disks, const std::vector<int> &schedule) {
   int makespan = 0;
   std::vector<int> task_end_times(tasks.size(), 0);
+  std::vector<int> machine_end_times(machines.size(), 0);
+  std::vector<int> disk_end_times(disks.size(), 0);
 
   for (int i = 0; i < tasks.size(); i++) {
     int task_id = schedule[i * 3];
     int machine_id = schedule[i * 3 + 1];
     int disk_id = schedule[i * 3 + 2];
+
+    // 检查机器亲和性
+    if (std::find(tasks[task_id].affinitive_machines.begin(), tasks[task_id].affinitive_machines.end(), machine_id) == tasks[task_id].affinitive_machines.end()) {
+      return INT_MAX; // 不符合亲和性约束
+    }
 
     // 计算任务执行时间
     int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
@@ -67,14 +74,21 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
       task_start_time = std::max(task_start_time, task_end_times[dep]);
     }
 
+    // 确保机器和磁盘空闲
+    task_start_time = std::max(task_start_time, machine_end_times[machine_id]);
+    task_start_time = std::max(task_start_time, disk_end_times[disk_id]);
+
     int task_end_time = task_start_time + read_time + execute_time + write_time;
     task_end_times[task_id] = task_end_time;
+    machine_end_times[machine_id] = task_end_time;
+    disk_end_times[disk_id] = task_end_time;
 
     // 更新makespan
     makespan = std::max(makespan, task_end_time);
   }
   return makespan;
 }
+
 
 // 初始化种群
 std::vector<std::vector<int>> init_population(int population_size,
@@ -83,14 +97,13 @@ std::vector<std::vector<int>> init_population(int population_size,
   std::vector<std::vector<int>> population;
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis_task(0, num_tasks - 1);
   std::uniform_int_distribution<> dis_machine(0, num_machines - 1);
   std::uniform_int_distribution<> dis_disk(0, num_disks - 1);
 
   for (int i = 0; i < population_size; i++) {
     std::vector<int> individual(num_tasks * 3);
     for (int j = 0; j < num_tasks; j++) {
-      individual[j * 3] = dis_task(gen);
+      individual[j * 3] = j; // 每个任务唯一分配
       individual[j * 3 + 1] = dis_machine(gen);
       individual[j * 3 + 2] = dis_disk(gen);
     }
@@ -99,11 +112,23 @@ std::vector<std::vector<int>> init_population(int population_size,
   return population;
 }
 
+
 // 选择操作
 std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &population,
                                         const std::vector<double> &fitnesses) {
   std::vector<std::vector<int>> new_population;
-  std::discrete_distribution<> dist(fitnesses.begin(), fitnesses.end());
+  std::vector<double> probabilities(fitnesses.size());
+  double sum_fitness = 0;
+
+  for (double fit : fitnesses) {
+    sum_fitness += fit;
+  }
+
+  for (int i = 0; i < fitnesses.size(); i++) {
+    probabilities[i] = fitnesses[i] / sum_fitness;
+  }
+
+  std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
   std::mt19937 gen(std::random_device{}());
 
   for (int i = 0; i < POPULATION_SIZE; i++) {
@@ -112,6 +137,7 @@ std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &pop
   }
   return new_population;
 }
+
 
 // 交叉操作
 std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
@@ -131,31 +157,31 @@ std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
   return {offspring1, offspring2};
 }
 
+
 // 变异操作
 void mutation(std::vector<int> &individual, int num_tasks, int num_machines,
               int num_disks) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(0.0, 1.0);
-  std::uniform_int_distribution<> dis_task(0, num_tasks - 1);
   std::uniform_int_distribution<> dis_machine(0, num_machines - 1);
   std::uniform_int_distribution<> dis_disk(0, num_disks - 1);
 
   for (int i = 0; i < individual.size() / 3; i++) {
     if (dis(gen) < MUTATION_RATE) {
-      individual[i * 3] = dis_task(gen);
       individual[i * 3 + 1] = dis_machine(gen);
       individual[i * 3 + 2] = dis_disk(gen);
     }
   }
 }
 
+
 int main() {
   int num_tasks, num_machines, num_disks;
   std::cin >> num_tasks;
 
   if (num_tasks <= 0) {
-    std::cerr << "Invalid number of tasks." << std::endl;
+    std::cerr << "无效的任务数量。" << std::endl;
     return -1;
   }
 
@@ -164,7 +190,7 @@ int main() {
     std::cin >> tasks[i].id >> tasks[i].size >> tasks[i].output_size;
     tasks[i].id -= 1; // 转换为从0开始
     if (tasks[i].id < 0 || tasks[i].size <= 0 || tasks[i].output_size < 0) {
-      std::cerr << "Invalid task data." << std::endl;
+      std::cerr << "无效的任务数据。" << std::endl;
       return -1;
     }
 
@@ -175,7 +201,7 @@ int main() {
       std::cin >> affinitive_machine;
       affinitive_machine -= 1; // 转换为从0开始
       if (affinitive_machine < 0 || affinitive_machine >= num_machines) {
-        std::cerr << "Invalid machine ID." << std::endl;
+        std::cerr << "无效的机器ID。" << std::endl;
         return -1;
       }
       tasks[i].affinitive_machines.push_back(affinitive_machine);
@@ -184,7 +210,7 @@ int main() {
 
   std::cin >> num_machines;
   if (num_machines <= 0) {
-    std::cerr << "Invalid number of machines." << std::endl;
+    std::cerr << "无效的机器数量。" << std::endl;
     return -1;
   }
 
@@ -193,14 +219,14 @@ int main() {
     std::cin >> machines[i].id >> machines[i].power;
     machines[i].id -= 1; // 转换为从0开始
     if (machines[i].id < 0 || machines[i].power <= 0) {
-      std::cerr << "Invalid machine data." << std::endl;
+      std::cerr << "无效的机器数据。" << std::endl;
       return -1;
     }
   }
 
   std::cin >> num_disks;
   if (num_disks <= 0) {
-    std::cerr << "Invalid number of disks." << std::endl;
+    std::cerr << "无效的磁盘数量。" << std::endl;
     return -1;
   }
 
@@ -209,7 +235,7 @@ int main() {
     std::cin >> disks[i].id >> disks[i].speed >> disks[i].quota;
     disks[i].id -= 1; // 转换为从0开始
     if (disks[i].id < 0 || disks[i].speed <= 0 || disks[i].quota < 0) {
-      std::cerr << "Invalid disk data." << std::endl;
+      std::cerr << "无效的磁盘数据。" << std::endl;
       return -1;
     }
   }
@@ -223,7 +249,7 @@ int main() {
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "Invalid data dependency." << std::endl;
+      std::cerr << "无效的数据依赖。" << std::endl;
       return -1;
     }
     tasks[task_id2].dependencies.push_back(task_id1);
@@ -238,7 +264,7 @@ int main() {
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "Invalid environment dependency." << std::endl;
+      std::cerr << "无效的环境依赖。" << std::endl;
       return -1;
     }
     tasks[task_id2].env_dependencies.push_back(task_id1);
@@ -318,3 +344,5 @@ int main() {
 
   return 0;
 }
+
+
