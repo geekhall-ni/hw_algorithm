@@ -1,6 +1,4 @@
 #include <algorithm>
-#include <chrono>
-#include <cmath>
 #include <iostream>
 #include <random>
 #include <vector>
@@ -38,7 +36,6 @@ const int MAX_GENERATIONS = 1000;
 const double MUTATION_RATE = 0.01;
 const double CROSSOVER_RATE = 0.8;
 
-// 适应度函数
 int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines,
             const std::vector<Disk> &disks, const std::vector<int> &schedule) {
   int makespan = 0;
@@ -56,19 +53,7 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
       return INT_MAX; // 不符合亲和性约束
     }
 
-    // 计算任务执行时间
-    int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
-
-    // 计算数据读取时间
-    int read_time = 0;
-    for (int j : tasks[task_id].dependencies) {
-      read_time += (double)tasks[j].output_size / disks[disk_id].speed;
-    }
-
-    // 计算数据写入时间
-    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
-
-    // 确保所有前置任务完成
+    // 计算任务开始时间
     int task_start_time = 0;
     for (int dep : tasks[task_id].dependencies) {
       task_start_time = std::max(task_start_time, task_end_times[dep]);
@@ -77,6 +62,18 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     // 确保机器和磁盘空闲
     task_start_time = std::max(task_start_time, machine_end_times[machine_id]);
     task_start_time = std::max(task_start_time, disk_end_times[disk_id]);
+
+    // 计算任务执行时间
+    int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
+
+    // 计算数据读取时间
+    int read_time = 0;
+    for (int dep : tasks[task_id].dependencies) {
+      read_time += (double)tasks[dep].output_size / disks[disk_id].speed;
+    }
+
+    // 计算数据写入时间
+    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
 
     int task_end_time = task_start_time + read_time + execute_time + write_time;
     task_end_times[task_id] = task_end_time;
@@ -88,6 +85,7 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   }
   return makespan;
 }
+
 
 
 // 初始化种群
