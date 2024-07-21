@@ -47,7 +47,7 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   // 检查每台机器上的任务是否重叠
   std::vector<std::vector<std::pair<int, int>>> machine_tasks(machines.size());
 
-  for (int i = 0; i < tasks.size(); i++) {
+  for (int i = 0; i< tasks.size(); i++) {
     int task_id = schedule[i * 3];
     int machine_id = schedule[i * 3 + 1];
     int disk_id = schedule[i * 3 + 2];
@@ -78,11 +78,11 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
       read_time += (double)tasks[dep].output_size / disks[disk_id].speed;
     }
 
-    // 计算数据写入时间
-    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
-
     // 计算任务执行时间
     int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
+
+    // 计算数据写入时间
+    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
 
     int task_end_time = task_start_time + read_time + execute_time + write_time;
     task_end_times[task_id] = task_end_time;
@@ -100,19 +100,19 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   }
 
   // 检查每个磁盘的配额
-  for (int i = 0; i < disks.size(); i++) {
+  for (int i = 0; i< disks.size(); i++) {
     if (disk_data_usage[i] > disks[i].quota) {
       return INT_MAX; // 磁盘配额超出
     }
   }
 
   // 检查不可抢占性（任务重叠）
-  for (int m = 0; m < machines.size(); m++) {
+  for (int m = 0; m< machines.size(); m++) {
     std::vector<std::pair<int, int>> intervals = machine_tasks[m];
     std::sort(intervals.begin(), intervals.end());
 
-    for (int i = 1; i < intervals.size(); i++) {
-      if (intervals[i].first < intervals[i - 1].second) {
+    for (int i = 1; i< intervals.size(); i++) {
+      if (intervals[i].first< intervals[i - 1].second) {
         return INT_MAX; // 任务重叠
       }
     }
