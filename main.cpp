@@ -47,7 +47,7 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   // 检查每台机器上的任务是否重叠
   std::vector<std::vector<std::pair<int, int>>> machine_tasks(machines.size());
 
-  for (int i = 0; i< tasks.size(); i++) {
+  for (int i = 0; i < tasks.size(); i++) {
     int task_id = schedule[i * 3];
     int machine_id = schedule[i * 3 + 1];
     int disk_id = schedule[i * 3 + 2];
@@ -104,19 +104,19 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   }
 
   // 检查每个磁盘的配额
-  for (int i = 0; i< disks.size(); i++) {
+  for (int i = 0; i < disks.size(); i++) {
     if (disk_data_usage[i] > disks[i].quota) {
       return INT_MAX; // 磁盘配额超出
     }
   }
 
   // 检查不可抢占性（任务重叠）
-  for (int m = 0; m< machines.size(); m++) {
+  for (int m = 0; m < machines.size(); m++) {
     std::vector<std::pair<int, int>> intervals = machine_tasks[m];
     std::sort(intervals.begin(), intervals.end());
 
-    for (int i = 1; i< intervals.size(); i++) {
-      if (intervals[i].first< intervals[i - 1].second) {
+    for (int i = 1; i < intervals.size(); i++) {
+      if (intervals[i].first < intervals[i - 1].second) {
         return INT_MAX; // 任务重叠
       }
     }
@@ -124,8 +124,6 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
 
   return makespan;
 }
-
-
 
 // 初始化种群
 std::vector<std::vector<int>> init_population(int population_size,
@@ -148,7 +146,6 @@ std::vector<std::vector<int>> init_population(int population_size,
   }
   return population;
 }
-
 
 // 选择操作
 std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &population,
@@ -175,7 +172,6 @@ std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &pop
   return new_population;
 }
 
-
 // 交叉操作
 std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
                                         const std::vector<int> &parent2) {
@@ -183,7 +179,7 @@ std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
   std::vector<int> offspring2 = parent2;
 
   if (std::rand() / double(RAND_MAX) < CROSSOVER_RATE) {
-    int crossover_point = std::rand() % (parent1.size() / 3);
+    int crossover_point = std::rand() % (parent1.size() / 3); // 应该是任务数
     for (int i = crossover_point; i < parent1.size() / 3; i++) {
       std::swap(offspring1[i * 3], offspring2[i * 3]);
       std::swap(offspring1[i * 3 + 1], offspring2[i * 3 + 1]);
@@ -193,7 +189,6 @@ std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
 
   return {offspring1, offspring2};
 }
-
 
 // 变异操作
 void mutation(std::vector<int> &individual, int num_tasks, int num_machines,
@@ -211,7 +206,6 @@ void mutation(std::vector<int> &individual, int num_tasks, int num_machines,
     }
   }
 }
-
 
 int main() {
   int num_tasks, num_machines, num_disks;
@@ -289,7 +283,7 @@ int main() {
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的数据依赖。"<< std::endl;
+      std::cerr << "无效的数据依赖。" << std::endl;
       return -1;
     }
     tasks[task_id2].dependencies.push_back(task_id1);
@@ -307,7 +301,7 @@ int main() {
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的环境依赖。"<< std::endl;
+      std::cerr << "无效的环境依赖。" << std::endl;
       return -1;
     }
     tasks[task_id2].env_dependencies.push_back(task_id1);
@@ -321,7 +315,8 @@ int main() {
   for (int generation = 0; generation < MAX_GENERATIONS; generation++) {
     std::vector<double> fitnesses(POPULATION_SIZE);
     for (int i = 0; i < POPULATION_SIZE; i++) {
-      fitnesses[i] = 1.0 / fitness(tasks, machines, disks, population[i]);
+      int fit = fitness(tasks, machines, disks, population[i]);
+      fitnesses[i] = (fit == INT_MAX) ? 0.0 : 1.0 / fit;
     }
 
     // 选择操作
@@ -336,8 +331,8 @@ int main() {
     }
 
     // 变异操作
-    for (int i = 0; i < POPULATION_SIZE; i++) {
-      mutation(offspring[i], num_tasks, num_machines, num_disks);
+    for (auto &ind : offspring) {
+      mutation(ind, num_tasks, num_machines, num_disks);
     }
 
     // 更新种群
@@ -345,7 +340,7 @@ int main() {
   }
 
   // 输出结果
-  std::vector<int> start_times(num_tasks, 0);
+  std::vector<int> task_end_times(num_tasks, 0);
   int min_makespan = INT_MAX;
   std::vector<int> best_individual;
 
@@ -358,7 +353,7 @@ int main() {
   }
 
   // 打印最佳个体的任务调度情况
-  std::vector<int> task_end_times(num_tasks, 0);
+  std::vector<int> best_task_end_times(num_tasks, 0);
   for (int j = 0; j < num_tasks; j++) {
     int task_id = best_individual[j * 3];
     int machine_id = best_individual[j * 3 + 1];
@@ -367,7 +362,7 @@ int main() {
     // 计算任务开始时间
     int task_start_time = 0;
     for (int dep : tasks[task_id].dependencies) {
-      task_start_time = std::max(task_start_time, task_end_times[dep]);
+      task_start_time = std::max(task_start_time, best_task_end_times[dep]);
     }
 
     int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
@@ -378,7 +373,7 @@ int main() {
     int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
 
     int task_end_time = task_start_time + read_time + execute_time + write_time;
-    task_end_times[task_id] = task_end_time;
+    best_task_end_times[task_id] = task_end_time;
 
     // 输出任务调度情况
     std::cout << task_id + 1 << " " << task_start_time << " "
@@ -387,5 +382,3 @@ int main() {
 
   return 0;
 }
-
-
