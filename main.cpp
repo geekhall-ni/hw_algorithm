@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <climits>
+#include <ctime>
 
 // 任务类
 class Task {
@@ -42,9 +43,8 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   std::vector<int> task_end_times(tasks.size(), 0);
   std::vector<int> machine_end_times(machines.size(), 0);
   std::vector<int> disk_end_times(disks.size(), 0);
-  std::vector<int> disk_data_usage(disks.size(), 0); // 用于配额检查
+  std::vector<int> disk_data_usage(disks.size(), 0);
 
-  // 检查每台机器上的任务是否重叠
   std::vector<std::vector<std::pair<int, int>>> machine_tasks(machines.size());
 
   for (int i = 0; i < tasks.size(); i++) {
@@ -52,40 +52,50 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     int machine_id = schedule[i * 3 + 1];
     int disk_id = schedule[i * 3 + 2];
 
-    // 检查机器亲和性
+    if (task_id < 0 || task_id >= tasks.size() ||
+        machine_id < 0 || machine_id >= machines.size() ||
+        disk_id < 0 || disk_id >= disks.size()) {
+      return INT_MAX; // 无效的任务、机器或磁盘 ID
+    }
+
     if (std::find(tasks[task_id].affinitive_machines.begin(), tasks[task_id].affinitive_machines.end(), machine_id) == tasks[task_id].affinitive_machines.end()) {
       return INT_MAX; // 不符合亲和性约束
     }
 
-    // 计算任务开始时间
     int task_start_time = 0;
-    for (int dep : tasks[task_id].dependencies) {
-      if (dep != -1) { // 检查是否存在数据依赖
-        task_start_time = std::max(task_start_time, task_end_times[dep]);
+
+    // 只有在存在数据依赖时才检查数据依赖
+    if (!tasks[task_id].dependencies.empty()) {
+      for (int dep : tasks[task_id].dependencies) {
+        if (dep >= 0 && dep < tasks.size()) {
+          task_start_time = std::max(task_start_time, task_end_times[dep]);
+        }
       }
     }
 
-    // 确保任务满足环境依赖
-    for (int env_dep : tasks[task_id].env_dependencies) {
-      if (env_dep != -1) { // 检查是否存在环境依赖
-        task_start_time = std::max(task_start_time, task_end_times[env_dep]);
+    // 只有在存在环境依赖时才检查环境依赖
+    if (!tasks[task_id].env_dependencies.empty()) {
+      for (int env_dep : tasks[task_id].env_dependencies) {
+        if (env_dep >= 0 && env_dep < tasks.size()) {
+          task_start_time = std::max(task_start_time, task_end_times[env_dep]);
+        }
       }
     }
 
-    // 确保机器和磁盘空闲
     task_start_time = std::max(task_start_time, machine_end_times[machine_id]);
     task_start_time = std::max(task_start_time, disk_end_times[disk_id]);
 
-    // 计算数据读取时间
     int read_time = 0;
-    for (int dep : tasks[task_id].dependencies) {
-      read_time += (double)tasks[dep].output_size / disks[disk_id].speed;
+    // 只有在存在数据依赖时才计算读取时间
+    if (!tasks[task_id].dependencies.empty()) {
+      for (int dep : tasks[task_id].dependencies) {
+        if (dep >= 0 && dep < tasks.size()) {
+          read_time += (double)tasks[dep].output_size / disks[disk_id].speed;
+        }
+      }
     }
 
-    // 计算任务执行时间
     int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
-
-    // 计算数据写入时间
     int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
 
     int task_end_time = task_start_time + read_time + execute_time + write_time;
@@ -93,24 +103,18 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     machine_end_times[machine_id] = task_end_time;
     disk_end_times[disk_id] = task_end_time;
 
-    // 更新磁盘数据使用量
     disk_data_usage[disk_id] += tasks[task_id].output_size;
-
-    // 添加任务区间到机器任务列表
     machine_tasks[machine_id].push_back({task_start_time, task_end_time});
 
-    // 更新makespan
     makespan = std::max(makespan, task_end_time);
   }
 
-  // 检查每个磁盘的配额
   for (int i = 0; i < disks.size(); i++) {
     if (disk_data_usage[i] > disks[i].quota) {
       return INT_MAX; // 磁盘配额超出
     }
   }
 
-  // 检查不可抢占性（任务重叠）
   for (int m = 0; m < machines.size(); m++) {
     std::vector<std::pair<int, int>> intervals = machine_tasks[m];
     std::sort(intervals.begin(), intervals.end());
@@ -156,6 +160,11 @@ std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &pop
 
   for (double fit : fitnesses) {
     sum_fitness += fit;
+  }
+
+  if (sum_fitness == 0) {
+    // 防止除以0
+    return new_population;
   }
 
   for (int i = 0; i < fitnesses.size(); i++) {
@@ -208,6 +217,10 @@ void mutation(std::vector<int> &individual, int num_tasks, int num_machines,
 }
 
 int main() {
+
+  // 初始化随机数种子
+  std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
   int num_tasks, num_machines, num_disks;
   std::cin >> num_tasks;
 
@@ -274,38 +287,37 @@ int main() {
   // 读取数据依赖
   int num_data_dependencies;
   std::cin >> num_data_dependencies;
-  for (int i = 0; i < num_data_dependencies; i++) {
-    int task_id1, task_id2;
-    std::cin >> task_id1 >> task_id2;
-    if (task_id1 == 0 && task_id2 == 0) {
-      continue; // 如果没有数据依赖，跳过此次循环
+  if (num_data_dependencies > 0) {  // 确保有数据依赖时才读取
+    for (int i = 0; i < num_data_dependencies; i++) {
+      int task_id1, task_id2;
+      std::cin >> task_id1 >> task_id2;
+      task_id1 -= 1; // 转换为从0开始
+      task_id2 -= 1; // 转换为从0开始
+      if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
+        std::cerr << "无效的数据依赖。" << std::endl;
+        return -1;
+      }
+      tasks[task_id2].dependencies.push_back(task_id1);
     }
-    task_id1 -= 1; // 转换为从0开始
-    task_id2 -= 1; // 转换为从0开始
-    if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的数据依赖。" << std::endl;
-      return -1;
-    }
-    tasks[task_id2].dependencies.push_back(task_id1);
   }
 
   // 读取环境依赖
   int num_env_dependencies;
   std::cin >> num_env_dependencies;
-  for (int i = 0; i < num_env_dependencies; i++) {
-    int task_id1, task_id2;
-    std::cin >> task_id1 >> task_id2;
-    if (task_id1 == 0 && task_id2 == 0) {
-      continue; // 如果没有环境依赖，跳过此次循环
+  if (num_env_dependencies > 0) {  // 确保有环境依赖时才读取
+    for (int i = 0; i < num_env_dependencies; i++) {
+      int task_id1, task_id2;
+      std::cin >> task_id1 >> task_id2;
+      task_id1 -= 1; // 转换为从0开始
+      task_id2 -= 1; // 转换为从0开始
+      if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
+        std::cerr << "无效的环境依赖。" << std::endl;
+        return -1;
+      }
+      tasks[task_id2].env_dependencies.push_back(task_id1);
     }
-    task_id1 -= 1; // 转换为从0开始
-    task_id2 -= 1; // 转换为从0开始
-    if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的环境依赖。" << std::endl;
-      return -1;
-    }
-    tasks[task_id2].env_dependencies.push_back(task_id1);
   }
+
 
   // 初始化种群
   std::vector<std::vector<int>> population =
