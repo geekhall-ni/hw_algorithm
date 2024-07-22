@@ -33,7 +33,7 @@ public:
 // 遗传算法参数
 const int POPULATION_SIZE = 100;
 const int MAX_GENERATIONS = 1000;
-const double MUTATION_RATE = 0.01;
+const double MUTATION_RATE = 0.3;
 const double CROSSOVER_RATE = 0.8;
 
 int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines,
@@ -60,12 +60,16 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     // 计算任务开始时间
     int task_start_time = 0;
     for (int dep : tasks[task_id].dependencies) {
-      task_start_time = std::max(task_start_time, task_end_times[dep]);
+      if (dep != -1) { // 检查是否存在数据依赖
+        task_start_time = std::max(task_start_time, task_end_times[dep]);
+      }
     }
 
     // 确保任务满足环境依赖
     for (int env_dep : tasks[task_id].env_dependencies) {
-      task_start_time = std::max(task_start_time, task_end_times[env_dep]);
+      if (env_dep != -1) { // 检查是否存在环境依赖
+        task_start_time = std::max(task_start_time, task_end_times[env_dep]);
+      }
     }
 
     // 确保机器和磁盘空闲
@@ -279,10 +283,13 @@ int main() {
   for (int i = 0; i < num_data_dependencies; i++) {
     int task_id1, task_id2;
     std::cin >> task_id1 >> task_id2;
+    if (task_id1 == 0 && task_id2 == 0) {
+      continue; // 如果没有数据依赖，跳过此次循环
+    }
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的数据依赖。" << std::endl;
+      std::cerr << "无效的数据依赖。"<< std::endl;
       return -1;
     }
     tasks[task_id2].dependencies.push_back(task_id1);
@@ -294,10 +301,13 @@ int main() {
   for (int i = 0; i < num_env_dependencies; i++) {
     int task_id1, task_id2;
     std::cin >> task_id1 >> task_id2;
+    if (task_id1 == 0 && task_id2 == 0) {
+      continue; // 如果没有环境依赖，跳过此次循环
+    }
     task_id1 -= 1; // 转换为从0开始
     task_id2 -= 1; // 转换为从0开始
     if (task_id1 < 0 || task_id1 >= num_tasks || task_id2 < 0 || task_id2 >= num_tasks) {
-      std::cerr << "无效的环境依赖。" << std::endl;
+      std::cerr << "无效的环境依赖。"<< std::endl;
       return -1;
     }
     tasks[task_id2].env_dependencies.push_back(task_id1);
