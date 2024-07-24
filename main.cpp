@@ -1,9 +1,10 @@
 #include <algorithm>
+#include <climits>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <vector>
-#include <climits>
-#include <ctime>
 
 // 任务类
 class Task {
@@ -388,8 +389,10 @@ int main() {
     best_task_end_times[task_id] = task_end_time;
 
     // 输出任务调度情况
-    std::cout << task_id + 1 << " " << task_start_time << " "
-              << machine_id + 1 << " " << disk_id + 1 << std::endl;
+    std::cout << std::setw(1) << std::left << task_id + 1 << " "
+              << std::setw(1) << std::right << task_start_time << " "
+              << std::setw(1) << std::right << machine_id + 1 << " "
+              << std::setw(1) << std::right << disk_id + 1 << std::endl;
   }
 
   return 0;
