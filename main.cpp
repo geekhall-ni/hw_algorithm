@@ -390,7 +390,7 @@ int main() {
 
     // 输出任务调度情况
     std::cout << std::setw(1) << std::left << task_id + 1 << " "
-              << std::setw(1) << std::right << task_start_time << " "
+              << std::setw(2) << std::right << task_start_time << " "
               << std::setw(1) << std::right << machine_id + 1 << " "
               << std::setw(1) << std::right << disk_id + 1 << std::endl;
   }
