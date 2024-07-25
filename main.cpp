@@ -365,12 +365,7 @@ int main() {
     }
   }
 
-  // 计算每列的最大宽度
-  int max_task_id_width = 0;
-  int max_task_start_time_width = 0;
-  int max_machine_id_width = 0;
-  int max_disk_id_width = 0;
-
+  // 打印最佳个体的任务调度情况
   std::vector<int> best_task_end_times(num_tasks, 0);
   for (int j = 0; j < num_tasks; j++) {
     int task_id = best_individual[j * 3];
@@ -393,40 +388,9 @@ int main() {
     int task_end_time = task_start_time + read_time + execute_time + write_time;
     best_task_end_times[task_id] = task_end_time;
 
-    // 更新最大宽度
-    max_task_id_width = std::max(max_task_id_width, (int)std::to_string(task_id + 1).length());
-    max_task_start_time_width = std::max(max_task_start_time_width, (int)std::to_string(task_start_time).length());
-    max_machine_id_width = std::max(max_machine_id_width, (int)std::to_string(machine_id + 1).length());
-    max_disk_id_width = std::max(max_disk_id_width, (int)std::to_string(disk_id + 1).length());
-  }
-
-  // 打印最佳个体的任务调度情况
-  for (int j = 0; j < num_tasks; j++) {
-    int task_id = best_individual[j * 3];
-    int machine_id = best_individual[j * 3 + 1];
-    int disk_id = best_individual[j * 3 + 2];
-
-    // 计算任务开始时间
-    int task_start_time = 0;
-    for (int dep : tasks[task_id].dependencies) {
-      task_start_time = std::max(task_start_time, best_task_end_times[dep]);
-    }
-
-    int execute_time = (double)tasks[task_id].size / machines[machine_id].power;
-    int read_time = 0;
-    for (int dep : tasks[task_id].dependencies) {
-      read_time += (double)tasks[dep].output_size / disks[disk_id].speed;
-    }
-    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
-
-    int task_end_time = task_start_time + read_time + execute_time + write_time;
-    best_task_end_times[task_id] = task_end_time;
-
     // 输出任务调度情况
-    std::cout << std::setw(max_task_id_width) << std::left << task_id + 1 << " "
-              << std::setw(max_task_start_time_width) << std::right << task_start_time << " "
-              << std::setw(max_machine_id_width) << std::right << machine_id + 1 << " "
-              << std::setw(max_disk_id_width) << std::right << disk_id + 1 << std::endl;
+    std::cout << task_id + 1 << " " << task_start_time << " "
+              << machine_id + 1 << " " << disk_id + 1 << std::endl;
   }
 
   return 0;
