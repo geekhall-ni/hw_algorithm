@@ -103,7 +103,6 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     machine_end_times[machine_id] = std::max(machine_end_times[machine_id], task_end_time);
     disk_end_times[disk_id] = std::max(disk_end_times[disk_id], task_end_time);
 
-
     disk_data_usage[disk_id] += tasks[task_id].output_size;
     machine_tasks[machine_id].emplace_back(task_start_time, task_end_time);
 
@@ -175,8 +174,6 @@ std::vector<std::vector<int>> selection(const std::vector<std::vector<int>> &pop
   for (int i = 0; i < fitnesses.size(); i++) {
     probabilities[i] = (fitnesses[i] > 0) ? fitnesses[i] / sum_fitness : 0;
   }
-
-
   for (int i = 0; i < fitnesses.size(); i++) {
     probabilities[i] = fitnesses[i] / sum_fitness;
   }
@@ -202,7 +199,6 @@ std::vector<std::vector<int>> crossover(const std::vector<int> &parent1,
   if (static_cast<double>(std::rand()) / RAND_MAX < CROSSOVER_RATE) {
     int crossover_point = std::rand() % (parent1.size() / 3);
 
-
     for (int i = crossover_point; i < parent1.size() / 3; i++) {
       std::swap(offspring1[i * 3], offspring2[i * 3]);
       std::swap(offspring1[i * 3 + 1], offspring2[i * 3 + 1]);
@@ -223,10 +219,8 @@ void mutation(std::vector<int> &individual, int num_tasks, int num_machines, int
 
   for (int i = 0; i < individual.size() / 3; i++) {
     if (dis(gen) < MUTATION_RATE) {
-      // 变异机器 ID
-      individual[i * 3 + 1] = dis_machine(gen);
-      // 变异磁盘 ID
-      individual[i * 3 + 2] = dis_disk(gen);
+      individual[i * 3 + 1] = dis_machine(gen); // 变异机器ID
+      individual[i * 3 + 2] = dis_disk(gen); // 变异磁盘ID
     }
   }
 }
