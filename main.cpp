@@ -44,8 +44,6 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
   std::vector<int> machine_end_times(machines.size(), 0);
   std::vector<int> disk_end_times(disks.size(), 0);
   std::vector<int> disk_data_usage(disks.size(), 0);
-
-  // 存储每台机器上的任务
   std::vector<std::vector<std::pair<int, int>>> machine_tasks(machines.size());
 
   for (int i = 0; i < tasks.size(); i++) {
@@ -94,8 +92,7 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
 
     // 计算执行时间和写入时间
     int execute_time = (tasks[task_id].size + machines[machine_id].power - 1) / machines[machine_id].power; // 向上取整
-
-    int write_time = (double)tasks[task_id].output_size / disks[disk_id].speed;
+    int write_time = (tasks[task_id].output_size + disks[disk_id].speed - 1) / disks[disk_id].speed; // 向上取整
 
     // 计算任务结束时间
     int task_end_time = task_start_time + read_time + execute_time + write_time;
@@ -104,33 +101,27 @@ int fitness(const std::vector<Task> &tasks, const std::vector<Machine> &machines
     disk_end_times[disk_id] = std::max(disk_end_times[disk_id], task_end_time);
 
     disk_data_usage[disk_id] += tasks[task_id].output_size;
+
+    // 检查磁盘配额是否超出
+    if (disk_data_usage[disk_id] > disks[disk_id].quota) {
+      return INT_MAX; // 磁盘配额超出
+    }
+
+    // 检查机器上任务是否重叠
+    for (auto &interval : machine_tasks[machine_id]) {
+      if (task_start_time < interval.second) {
+        return INT_MAX; // 任务重叠
+      }
+    }
     machine_tasks[machine_id].emplace_back(task_start_time, task_end_time);
 
     // 更新makespan
     makespan = std::max(makespan, task_end_time);
   }
 
-  // 检查磁盘配额是否超出
-  for (int i = 0; i < disks.size(); i++) {
-    if (disk_data_usage[i] > disks[i].quota) {
-      return INT_MAX; // 磁盘配额超出
-    }
-  }
-
-  // 检查机器上任务是否重叠
-  for (int m = 0; m < machines.size(); m++) {
-    auto &intervals = machine_tasks[m];
-    std::sort(intervals.begin(), intervals.end());
-
-    for (int i = 1; i < intervals.size(); i++) {
-      if (intervals[i].first < intervals[i - 1].second) {
-        return INT_MAX; // 任务重叠
-      }
-    }
-  }
-
   return makespan;
 }
+
 
 // 初始化种群
 std::vector<std::vector<int>> init_population(int population_size,
